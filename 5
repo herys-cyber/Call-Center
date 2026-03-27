@@ -1,0 +1,129 @@
+// =====================================================
+// UTILIDADES GENERALES
+// =====================================================
+
+/**
+ * Escape HTML para evitar inyecciones
+ */
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
+ * Llamada a Google Apps Script
+ */
+async function callGAS(action, data = {}) {
+  try {
+    const response = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        action: action,
+        data: JSON.stringify(data)
+      })
+    });
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Error calling GAS:', error);
+    return { success: false, msg: 'Error de conexión' };
+  }
+}
+
+/**
+ * Guardar en localStorage
+ */
+function saveToStorage(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+/**
+ * Obtener de localStorage
+ */
+function getFromStorage(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Limpiar sesión
+ */
+function clearSession() {
+  localStorage.removeItem(STORAGE.USER);
+  localStorage.removeItem(STORAGE.ROLE);
+  localStorage.removeItem(STORAGE.TOKEN);
+}
+
+/**
+ * Verificar si hay sesión activa
+ */
+function isLoggedIn() {
+  return getFromStorage(STORAGE.USER) !== null;
+}
+
+/**
+ * Obtener usuario actual
+ */
+function getCurrentUser() {
+  return getFromStorage(STORAGE.USER);
+}
+
+/**
+ * Obtener rol actual
+ */
+function getCurrentRole() {
+  return getFromStorage(STORAGE.ROLE);
+}
+
+/**
+ * Formatear fecha
+ */
+function formatDate(date) {
+  if (typeof date === 'string') {
+    date = new Date(date);
+  }
+  return new Intl.DateTimeFormat('es-MX', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(date);
+}
+
+/**
+ * Formatear ISO date
+ */
+function formatISO(date) {
+  if (typeof date === 'string') {
+    date = new Date(date);
+  }
+  return date.toISOString().split('T')[0];
+}
+
+/**
+ * Mostrar notificación
+ */
+function showNotification(message, type = 'success') {
+  const notification = document.createElement('div');
+  notification.className = `notification notification-${type}`;
+  notification.textContent = message;
+  document.body.appendChild(notification);
+  
+  setTimeout(() => notification.remove(), 3000);
+}
+
+/**
+ * Limpiar teléfono (solo dígitos)
+ */
+function cleanPhone(phone) {
+  return String(phone || '').replace(/\D/g, '');
+}
