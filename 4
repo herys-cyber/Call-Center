@@ -1,0 +1,36 @@
+// =====================================================
+// CONFIGURACIÓN GLOBAL
+// =====================================================
+
+const CONFIG = {
+  // URL de tu Google Apps Script
+  API_URL: 'https://script.google.com/a/macros/propaga.mx/s/AKfycbynPGk3kWagpsYogLw-Ggzc6HdjffPKzaaspSEto6GmTpwC2z_FnznbhfZJuPmoitY/exec',
+  
+  // Zona horaria
+  TIMEZONE: 'America/Mexico_City',
+  
+  // Tipificaciones
+  TIPIFICACIONES: [
+    "No le interesa",
+    "Se Registra",
+    "Reagendar llamada",
+    "Buzon de voz / no contesta",
+    "Mala experiensa con el proveedor",
+    "Cliente Cuelga LLamada",
+    "Ya no no quiere saber nada de Propaga",
+    "Pedira pedido y pagara con propaga",
+    "Tiene dudas se explica como utilizar propaga",
+    "Numero equivocado",
+    "Se manda el flujo para el registros",
+    "Crédito Aceptado",
+    "No le interesa credito en efectivo",
+    "Ya tienes Prolana activo"
+  ]
+};
+
+// Almacenamiento local
+const STORAGE = {
+  USER: 'crm_user',
+  ROLE: 'crm_role',
+  TOKEN: 'crm_token'
+};
