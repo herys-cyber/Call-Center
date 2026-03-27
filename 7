@@ -1,0 +1,296 @@
+// =====================================================
+// LÓGICA CRM AGENTES
+// =====================================================
+
+let currentLead = null;
+let todosSeguimientos = [];
+let todasNotas = [];
+
+// Inicializar
+window.addEventListener('load', () => {
+  if (!isLoggedIn()) {
+    window.location.href = 'index.html';
+    return;
+  }
+
+  document.getElementById('userName').textContent = getCurrentUser();
+  cargarTipificaciones();
+  cargarLeadActual();
+  cargarSeguimientos();
+  cargarNotas();
+  cargarMetricas();
+});
+
+function switchTab(btn, tabId) {
+  document.querySelectorAll('.side-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+}
+
+function cargarTipificaciones() {
+  const select = document.getElementById('tipificacion');
+  CONFIG.TIPIFICACIONES.forEach(t => {
+    const option = document.createElement('option');
+    option.value = t;
+    option.textContent = t;
+    select.appendChild(option);
+  });
+
+  // Mostrar/ocultar reagenda
+  select.addEventListener('change', function() {
+    const box = document.getElementById('reagendaBox');
+    if (this.value.toLowerCase().includes('reagendar')) {
+      box.classList.remove('hidden');
+    } else {
+      box.classList.add('hidden');
+    }
+  });
+}
+
+async function cargarLeadActual() {
+  try {
+    const result = await callGAS('obtenerLeadActual', {
+      agente: getCurrentUser()
+    });
+
+    if (result && result.lead) {
+      currentLead = result.lead;
+      mostrarLead(result.lead);
+    } else {
+      mostrarSinLead();
+    }
+  } catch (error) {
+    console.error('Error cargando lead:', error);
+    mostrarSinLead();
+  }
+}
+
+function mostrarLead(lead) {
+  document.getElementById('leadContent').style.display = 'block';
+  document.getElementById('sinLead').style.display = 'none';
+
+  document.getElementById('leadId').textContent = lead.id || '-';
+  document.getElementById('leadTel').textContent = lead.tel || '-';
+  document.getElementById('leadName').textContent = lead.nombre || '-';
+
+  const extraDiv = document.getElementById('extraFields');
+  if (lead.extra && lead.extra.length) {
+    extraDiv.innerHTML = lead.extra.map(e => `
+      <div class="data-card">
+        <div class="k">${escapeHtml(e.k)}</div>
+        <div class="v">${escapeHtml(e.v)}</div>
+      </div>
+    `).join('');
+  }
+}
+
+function mostrarSinLead() {
+  document.getElementById('leadContent').style.display = 'none';
+  document.getElementById('sinLead').style.display = 'block';
+}
+
+async function cargarSiguiente() {
+  try {
+    const result = await callGAS('obtenerSiguienteLead', {
+      agente: getCurrentUser()
+    });
+
+    if (result && result.lead) {
+      currentLead = result.lead;
+      mostrarLead(result.lead);
+      limpiarFormulario();
+    } else {
+      mostrarSinLead();
+      showNotification('No hay más leads disponibles', 'warning');
+    }
+  } catch (error) {
+    console.error('Error cargando siguiente lead:', error);
+    showNotification('Error al cargar el lead', 'error');
+  }
+}
+
+async function guardarGestion() {
+  if (!currentLead) {
+    showNotification('No hay lead activo', 'error');
+    return;
+  }
+
+  const tipificacion = document.getElementById('tipificacion').value;
+  const comentario = document.getElementById('comentario').value.trim();
+
+  if (!tipificacion || !comentario) {
+    showNotification('Completa tipificación y comentario', 'warning');
+    return;
+  }
+
+  try {
+    const data = {
+      agente: getCurrentUser(),
+      idLead: currentLead.id,
+      telefono: currentLead.tel,
+      tipificacion: tipificacion,
+      comentario: comentario,
+      fechaReagenda: document.getElementById('fechaReagenda').value || ''
+    };
+
+    const result = await callGAS('guardarGestion', data);
+
+    if (!result || !result.success) {
+      showNotification(result?.msg || 'Error al guardar', 'error');
+      return;
+    }
+
+    showNotification('✅ Gestión guardada', 'success');
+    limpiarFormulario();
+    await cargarSiguiente();
+    await cargarSeguimientos();
+    await cargarMetricas();
+
+  } catch (error) {
+    console.error('Error guardando gestión:', error);
+    showNotification('Error de conexión', 'error');
+  }
+}
+
+async function cargarSeguimientos() {
+  try {
+    const result = await callGAS('obtenerSeguimientos', {
+      agente: getCurrentUser()
+    });
+
+    if (result && result.seguimientos) {
+      todosSeguimientos = result.seguimientos;
+      document.getElementById('countSeguimientos').textContent = `${result.seguimientos.length} seguimientos`;
+      renderSeguimientos(result.seguimientos);
+    }
+  } catch (error) {
+    console.error('Error cargando seguimientos:', error);
+  }
+}
+
+function renderSeguimientos(list) {
+  const container = document.getElementById('listaSeguimientos');
+
+  if (!list || list.length === 0) {
+    container.innerHTML = '<div class="empty">No hay seguimientos pendientes</div>';
+    return;
+  }
+
+  container.innerHTML = list.map(s => `
+    <div class="list-card">
+      <div class="title">${escapeHtml(s.cliente || 'Cliente sin nombre')}</div>
+      <p>📱 ${escapeHtml(s.telefono || '-')}</p>
+      <p>📅 ${escapeHtml(s.fecha || '-')}</p>
+      <p class="meta">${escapeHtml(s.comentario || '-')}</p>
+      <button class="btn btn-green btn-sm" onclick="cargarSeguimiento('${s.id}')">
+        📞 Llamar
+      </button>
+    </div>
+  `).join('');
+}
+
+async function cargarNotas() {
+  try {
+    const result = await callGAS('obtenerNotas', {
+      agente: getCurrentUser()
+    });
+
+    if (result && result.notas) {
+      todasNotas = result.notas;
+      renderNotas(result.notas);
+    }
+  } catch (error) {
+    console.error('Error cargando notas:', error);
+  }
+}
+
+function renderNotas(list) {
+  const container = document.getElementById('listaNotas');
+
+  if (!list || list.length === 0) {
+    container.innerHTML = '<div class="empty">Sin notas</div>';
+    return;
+  }
+
+  container.innerHTML = list.map(n => `
+    <div class="note-item">
+      <div>
+        <p style="margin: 0 0 4px; font-size: 13px;">${escapeHtml(n.texto)}</p>
+        <p style="margin: 0; font-size: 11px; color: var(--muted);">${escapeHtml(n.fecha)}</p>
+      </div>
+      <button class="btn btn-soft btn-sm" onclick="borrarNota('${n.id}')">🗑️</button>
+    </div>
+  `).join('');
+}
+
+async function guardarNota() {
+  const texto = document.getElementById('notaTexto').value.trim();
+
+  if (!texto) {
+    showNotification('Escribe una nota', 'warning');
+    return;
+  }
+
+  try {
+    const result = await callGAS('guardarNota', {
+      agente: getCurrentUser(),
+      texto: texto
+    });
+
+    if (!result || !result.success) {
+      showNotification(result?.msg || 'Error', 'error');
+      return;
+    }
+
+    showNotification('✅ Nota guardada', 'success');
+    document.getElementById('notaTexto').value = '';
+    await cargarNotas();
+
+  } catch (error) {
+    showNotification('Error al guardar nota', 'error');
+  }
+}
+
+async function borrarNota(id) {
+  if (!confirm('¿Eliminar nota?')) return;
+
+  try {
+    const result = await callGAS('borrarNota', {
+      id: id,
+      agente: getCurrentUser()
+    });
+
+    if (result && result.success) {
+      await cargarNotas();
+    }
+  } catch (error) {
+    console.error('Error eliminando nota:', error);
+  }
+}
+
+async function cargarMetricas() {
+  try {
+    const result = await callGAS('obtenerMetricas', {
+      agente: getCurrentUser(),
+      fecha: formatISO(new Date())
+    });
+
+    if (result) {
+      document.getElementById('metLeads').textContent = result.totalLeads || 0;
+      document.getElementById('metCreditos').textContent = result.totalCreditos || 0;
+      document.getElementById('metConectado').textContent = result.conectadoTexto || '00:00';
+      document.getElementById('metRegistros').textContent = result.totalRegistros || 0;
+    }
+  } catch (error) {
+    console.error('Error cargando métricas:', error);
+  }
+}
+
+function limpiarFormulario() {
+  document.getElementById('tipificacion').value = '';
+  document.getElementById('comentario').value = '';
+  document.getElementById('fechaReagenda').value = '';
+  document.getElementById('reagendaBox').classList.add('hidden');
+}
