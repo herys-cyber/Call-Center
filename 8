@@ -1,0 +1,397 @@
+// =====================================================
+// LÓGICA ADMIN
+// =====================================================
+
+let usuariosActuales = [];
+let usuarioEnEdicion = null;
+
+// Inicializar
+window.addEventListener('load', () => {
+  if (!isLoggedIn()) {
+    window.location.href = 'index.html';
+    return;
+  }
+
+  document.getElementById('userName').textContent = getCurrentUser();
+  cargarUsuarios();
+  cargarBases();
+  cargarMonitoreo();
+  
+  // Auto-refresh cada 5 segundos
+  setInterval(() => {
+    cargarMonitoreo();
+  }, 5000);
+});
+
+function switchAdminTab(btn, tabId) {
+  document.querySelectorAll('.side-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+}
+
+function refreshAdmin() {
+  cargarMonitoreo();
+  showNotification('✅ Datos actualizados', 'success');
+}
+
+// =====================================================
+// USUARIOS
+// =====================================================
+
+async function cargarUsuarios() {
+  try {
+    const result = await callGAS('obtenerTodosUsuarios', {});
+
+    if (result && result.usuarios) {
+      usuariosActuales = result.usuarios;
+      renderizarTablaUsuarios(result.usuarios);
+    }
+  } catch (error) {
+    console.error('Error cargando usuarios:', error);
+  }
+}
+
+function renderizarTablaUsuarios(usuarios) {
+  const tbody = document.getElementById('bodyUsuarios');
+
+  if (!usuarios || usuarios.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No hay usuarios registrados.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = usuarios.map(u => `
+    <tr>
+      <td><strong>${escapeHtml(u.nombre || '')}</strong></td>
+      <td><span class="pill ${u.tipo === 'Administrador' ? 'orange' : 'green'}">${escapeHtml(u.tipo || 'Agente')}</span></td>
+      <td><span class="pill ${u.estado === 'Activo' ? 'green' : 'red'}">${escapeHtml(u.estado || 'Activo')}</span></td>
+      <td>${escapeHtml(u.base || '-')}</td>
+      <td>
+        <button class="mini" onclick="editarUsuario('${escapeHtml(u.nombre)}')">✏️</button>
+        <button class="mini" onclick="confirmarEliminarUsuario('${escapeHtml(u.nombre)}')">🗑️</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function abrirModalNuevoUsuario() {
+  usuarioEnEdicion = null;
+  document.getElementById('modalTituloUsuario').innerText = 'Nuevo Usuario';
+  document.getElementById('usuarioNombre').value = '';
+  document.getElementById('usuarioClave').value = '';
+  document.getElementById('usuarioTipo').value = 'Agente';
+  document.getElementById('usuarioEstado').value = 'Activo';
+  document.getElementById('usuarioBase').value = 'Activo';
+  document.getElementById('btnGuardarUsuario').innerText = 'Crear Usuario';
+  document.getElementById('modalUsuario').classList.remove('hidden');
+}
+
+function cerrarModalUsuario() {
+  document.getElementById('modalUsuario').classList.add('hidden');
+  usuarioEnEdicion = null;
+}
+
+function editarUsuario(nombre) {
+  const usuario = usuariosActuales.find(u => u.nombre === nombre);
+  if (!usuario) {
+    showNotification('Usuario no encontrado', 'error');
+    return;
+  }
+
+  usuarioEnEdicion = nombre;
+  document.getElementById('modalTituloUsuario').innerText = 'Editar Usuario';
+  document.getElementById('usuarioNombre').value = usuario.nombre || '';
+  document.getElementById('usuarioClave').value = usuario.clave || '';
+  document.getElementById('usuarioTipo').value = usuario.tipo || 'Agente';
+  document.getElementById('usuarioEstado').value = usuario.estado || 'Activo';
+  document.getElementById('usuarioBase').value = usuario.base || 'Activo';
+  document.getElementById('btnGuardarUsuario').innerText = 'Actualizar';
+  document.getElementById('modalUsuario').classList.remove('hidden');
+}
+
+async function guardarUsuario() {
+  const nombre = document.getElementById('usuarioNombre').value.trim();
+  const clave = document.getElementById('usuarioClave').value.trim();
+  const tipo = document.getElementById('usuarioTipo').value;
+  const estado = document.getElementById('usuarioEstado').value;
+  const base = document.getElementById('usuarioBase').value;
+
+  if (!nombre || !clave) {
+    showNotification('El nombre y la contraseña son obligatorios', 'warning');
+    return;
+  }
+
+  if (clave.length < 3) {
+    showNotification('La contraseña debe tener al menos 3 caracteres', 'warning');
+    return;
+  }
+
+  const datos = {
+    nombre: nombre,
+    clave: clave,
+    tipo: tipo,
+    estado: estado,
+    base: base
+  };
+
+  try {
+    if (usuarioEnEdicion) {
+      const result = await callGAS('actualizarUsuario', {
+        nombreActual: usuarioEnEdicion,
+        datosNuevos: datos
+      });
+
+      if (!result || !result.success) {
+        showNotification(result?.msg || 'Error al actualizar', 'error');
+        return;
+      }
+      showNotification('✅ Usuario actualizado', 'success');
+    } else {
+      const result = await callGAS('crearNuevoUsuario', datos);
+
+      if (!result || !result.success) {
+        showNotification(result?.msg || 'Error al crear', 'error');
+        return;
+      }
+      showNotification('✅ Usuario creado', 'success');
+    }
+
+    cerrarModalUsuario();
+    await cargarUsuarios();
+
+  } catch (error) {
+    showNotification('Error de conexión', 'error');
+  }
+}
+
+async function confirmarEliminarUsuario(nombre) {
+  if (!confirm(`¿Eliminar a ${nombre}?\n\nEsta acción no se puede deshacer.`)) return;
+
+  try {
+    const result = await callGAS('eliminarUsuario', { nombre: nombre });
+
+    if (!result || !result.success) {
+      showNotification(result?.msg || 'Error al eliminar', 'error');
+      return;
+    }
+
+    showNotification('✅ Usuario eliminado', 'success');
+    await cargarUsuarios();
+  } catch (error) {
+    showNotification('Error al eliminar', 'error');
+  }
+}
+
+// Cerrar modal al hacer click fuera
+document.addEventListener('click', function(e) {
+  const modal = document.getElementById('modalUsuario');
+  if (e.target === modal) {
+    cerrarModalUsuario();
+  }
+});
+
+// =====================================================
+// BASES CSV
+// =====================================================
+
+function toggleTodosCSV(checked) {
+  document.getElementById('csvAgentesBox').classList.toggle('hidden', checked);
+}
+
+async function subirCSV() {
+  const file = document.getElementById('csvFile').files[0];
+  
+  if (!file) {
+    showNotification('Selecciona un archivo CSV', 'warning');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const csv = e.target.result;
+      const prioridad = document.getElementById('csvPrioridad').value;
+      const todos = document.getElementById('csvTodos').checked;
+
+      const result = await callGAS('importarBaseCsv', {
+        csv: csv,
+        prioridad: prioridad,
+        todos: todos,
+        usuario: getCurrentUser()
+      });
+
+      if (!result || !result.success) {
+        showNotification(result?.msg || 'Error al cargar', 'error');
+        return;
+      }
+
+      showNotification('✅ Base cargada correctamente', 'success');
+      document.getElementById('csvFile').value = '';
+      await cargarBases();
+
+    } catch (error) {
+      showNotification('Error al procesar archivo', 'error');
+    }
+  };
+
+  reader.readAsText(file);
+}
+
+async function cargarBases() {
+  try {
+    const result = await callGAS('obtenerBasesCargadas', {});
+
+    if (result && result.bases) {
+      renderizarTablaBases(result.bases);
+    }
+  } catch (error) {
+    console.error('Error cargando bases:', error);
+  }
+}
+
+function renderizarTablaBases(bases) {
+  const tbody = document.getElementById('bodyBases');
+
+  if (!bases || bases.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No hay bases cargadas.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = bases.map(b => `
+    <tr>
+      <td>${escapeHtml(b.baseId || '')}</td>
+      <td>${escapeHtml(b.archivo || '')}</td>
+      <td>${escapeHtml(b.fecha || '')}</td>
+      <td><span class="pill orange">${escapeHtml(b.prioridad || '')}</span></td>
+      <td>${b.total || 0}</td>
+      <td>
+        <button class="mini" onclick="eliminarBase('${escapeHtml(b.baseId)}')">🗑️ Eliminar</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function eliminarBase(baseId) {
+  if (!confirm(`¿Eliminar la base ${baseId}?`)) return;
+
+  try {
+    const result = await callGAS('eliminarBaseCargada', { baseId: baseId });
+
+    if (result && result.success) {
+      showNotification('✅ Base eliminada', 'success');
+      await cargarBases();
+    }
+  } catch (error) {
+    showNotification('Error al eliminar', 'error');
+  }
+}
+
+// =====================================================
+// MONITOREO
+// =====================================================
+
+async function cargarMonitoreo() {
+  try {
+    const result = await callGAS('obtenerResumenAdmin', {});
+
+    if (result && result.agentes) {
+      renderizarMonitoreo(result.agentes);
+    }
+  } catch (error) {
+    console.error('Error cargando monitoreo:', error);
+  }
+}
+
+function renderizarMonitoreo(agentes) {
+  const container = document.getElementById('gridMonitoreo');
+
+  if (!agentes || agentes.length === 0) {
+    container.innerHTML = '<div class="empty">Sin agentes activos</div>';
+    return;
+  }
+
+  container.innerHTML = agentes.map(a => `
+    <div class="panel">
+      <div class="section-title">
+        <h3>${escapeHtml(a.nombre)}</h3>
+        <span class="pill ${a.estado === 'Activo' ? 'green' : 'red'}">${escapeHtml(a.estado)}</span>
+      </div>
+
+      <div class="data-grid">
+        <div class="data-card">
+          <div class="k">Estado</div>
+          <div class="v">${escapeHtml(a.modo || 'LEAD')}</div>
+        </div>
+        <div class="data-card">
+          <div class="k">Leads Hoy</div>
+          <div class="v">${a.leadsHoy || 0}</div>
+        </div>
+        <div class="data-card">
+          <div class="k">Registros</div>
+          <div class="v">${a.registrosHoy || 0}</div>
+        </div>
+        <div class="data-card">
+          <div class="k">Crédito</div>
+          <div class="v">${a.creditoHoy || 0}</div>
+        </div>
+      </div>
+
+      ${a.idActual ? `
+        <div style="background: #edf8f1; border: 1px solid #b8ddc4; border-radius: 12px; padding: 10px; margin-top: 10px;">
+          <p style="margin: 0; font-size: 12px; font-weight: 900; color: #116635;">
+            📞 Lead Activo: ${escapeHtml(a.leadNombre || 'Sin nombre')}
+          </p>
+          <p style="margin: 4px 0 0; font-size: 11px; color: #116635;">
+            Tel: ${escapeHtml(a.telActual || '-')}
+          </p>
+        </div>
+      ` : ''}
+    </div>
+  `).join('');
+}
+
+// =====================================================
+// REPORTES
+// =====================================================
+
+async function cargarReportes() {
+  const inicio = document.getElementById('dateInicio').value;
+  const fin = document.getElementById('dateFin').value;
+
+  if (!inicio || !fin) {
+    showNotification('Selecciona ambas fechas', 'warning');
+    return;
+  }
+
+  try {
+    const result = await callGAS('obtenerReporte', {
+      inicio: inicio,
+      fin: fin
+    });
+
+    if (result && result.filas) {
+      renderizarReporte(result.filas);
+    }
+  } catch (error) {
+    showNotification('Error al cargar reporte', 'error');
+  }
+}
+
+function renderizarReporte(filas) {
+  const tbody = document.getElementById('bodyReportes');
+
+  if (!filas || filas.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Sin datos</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filas.map(f => `
+    <tr>
+      <td>${escapeHtml(f.agente || '')}</td>
+      <td>${f.totalLeads || 0}</td>
+      <td>${f.totalRegistros || 0}</td>
+      <td>${f.totalCredito || 0}</td>
+    </tr>
+  `).join('');
+}
