@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRM Call Center - PRO-PAGA</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="login-screen">
+    <div class="login-card">
+      <div class="logo-container">
+        <div class="logo">📞</div>
+      </div>
+      <h1 class="title">CRM Call Center</h1>
+      <p class="subtitle">PRO-PAGA</p>
+
+      <div id="loginForm">
+        <label class="label">Usuario</label>
+        <input type="text" id="loginUser" placeholder="Tu usuario" autofocus>
+
+        <label class="label">Contraseña</label>
+        <input type="password" id="loginPass" placeholder="Tu contraseña">
+
+        <button class="btn btn-green" onclick="loginUser()">Ingresar</button>
+        
+        <div id="loginError" class="error-message hidden"></div>
+        <div id="loginLoading" class="loading-spinner hidden">
+          <span></span> Validando...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>
