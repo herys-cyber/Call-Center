@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRM - Gestión de Leads</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="b1">📞 CRM</span>
+        <span class="b2">PRO-PAGA</span>
+      </div>
+
+      <div class="side-user">
+        <div class="name" id="userName">Agente</div>
+        <div class="role">Agente Comercial</div>
+      </div>
+
+      <nav class="side-menu">
+        <button class="side-btn active" onclick="switchTab(this, 'tabGestion')" data-tab="tabGestion">
+          📋 Gestión
+        </button>
+        <button class="side-btn" onclick="switchTab(this, 'tabSeguimiento')" data-tab="tabSeguimiento">
+          📅 Seguimientos
+        </button>
+        <button class="side-btn" onclick="switchTab(this, 'tabNotas')" data-tab="tabNotas">
+          📝 Notas
+        </button>
+        <button class="side-btn" onclick="switchTab(this, 'tabMetricas')" data-tab="tabMetricas">
+          📊 Métricas
+        </button>
+      </nav>
+
+      <div class="side-footer">
+        <button class="btn btn-soft btn-sm" onclick="logout()">🚪 Cerrar sesión</button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+      <!-- Tab: Gestión -->
+      <div id="tabGestion" class="tab-content active">
+        <div class="topbar">
+          <div class="top-title">
+            <h1>Gestión de Leads</h1>
+            <p>Administra tus llamadas y gestiones del día</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="section-title">
+            <h3>Lead Actual</h3>
+            <p id="timerDisplay">LEAD 00:00</p>
+          </div>
+
+          <div id="leadContent">
+            <div class="data-grid">
+              <div class="data-card">
+                <div class="k">ID Lead</div>
+                <div class="v" id="leadId">-</div>
+              </div>
+              <div class="data-card">
+                <div class="k">Teléfono</div>
+                <div class="v" id="leadTel">-</div>
+              </div>
+            </div>
+
+            <div class="data-card">
+              <div class="k">Nombre Cliente</div>
+              <div class="v" id="leadName">-</div>
+            </div>
+
+            <div id="extraFields"></div>
+
+            <div style="margin-top: 16px;">
+              <label class="label">Tipificación</label>
+              <select id="tipificacion">
+                <option value="">-- Seleccionar --</option>
+              </select>
+
+              <label class="label">Comentario</label>
+              <textarea id="comentario" placeholder="Escribe tu comentario aquí"></textarea>
+
+              <div id="reagendaBox" class="hidden">
+                <label class="label">Fecha de Reagenda</label>
+                <input type="date" id="fechaReagenda">
+              </div>
+
+              <div style="display: flex; gap: 10px; margin-top: 16px;">
+                <button class="btn btn-green" onclick="guardarGestion()">✅ Guardar y Siguiente</button>
+                <button class="btn btn-soft" onclick="cargarSiguiente()">⏭️ Siguiente</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="sinLead" class="empty">
+            <p>📭 No hay leads asignados</p>
+            <button class="btn btn-green" onclick="cargarSiguiente()" style="width: 100%; margin-top: 10px;">
+              🔍 Buscar Lead
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Seguimientos -->
+      <div id="tabSeguimiento" class="tab-content">
+        <div class="topbar">
+          <div class="top-title">
+            <h1>Seguimientos Pendientes</h1>
+            <p id="countSeguimientos">0 seguimientos</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <input type="text" id="searchSeg" placeholder="🔍 Buscar seguimiento..." style="width: 100%; margin-bottom: 14px;">
+          <div id="listaSeguimientos"></div>
+        </div>
+      </div>
+
+      <!-- Tab: Notas -->
+      <div id="tabNotas" class="tab-content">
+        <div class="topbar">
+          <div class="top-title">
+            <h1>Mis Notas</h1>
+          </div>
+        </div>
+
+        <div class="panel">
+          <textarea id="notaTexto" placeholder="Escribe una nota rápida..." style="width: 100%; min-height: 80px; margin-bottom: 10px;"></textarea>
+          <button class="btn btn-green" onclick="guardarNota()" style="width: 100%;">💾 Guardar Nota</button>
+
+          <div style="margin-top: 20px;">
+            <h3 style="margin: 0 0 14px; font-size: 16px; font-weight: 900;">Notas Recientes</h3>
+            <div id="listaNotas"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Métricas -->
+      <div id="tabMetricas" class="tab-content">
+        <div class="topbar">
+          <div class="top-title">
+            <h1>Mis Métricas</h1>
+          </div>
+        </div>
+
+        <div class="stats">
+          <div class="stat">
+            <div class="k">Total Leads</div>
+            <div class="v" id="metLeads">0</div>
+          </div>
+          <div class="stat">
+            <div class="k">Créditos Aceptados</div>
+            <div class="v" id="metCreditos">0</div>
+          </div>
+          <div class="stat">
+            <div class="k">Tiempo Conectado</div>
+            <div class="v" id="metConectado">00:00</div>
+          </div>
+          <div class="stat">
+            <div class="k">Registros</div>
+            <div class="v" id="metRegistros">0</div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/crm.js"></script>
+</body>
+</html>
