@@ -1,0 +1,87 @@
+// =====================================================
+// AUTENTICACIÓN
+// =====================================================
+
+async function loginUser() {
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value.trim();
+  
+  if (!user || !pass) {
+    showError('Usuario y contraseña son obligatorios');
+    return;
+  }
+
+  showLoading(true);
+
+  try {
+    const result = await callGAS('validarAcceso', {
+      usuario: user,
+      clave: pass
+    });
+
+    if (!result || !result.success) {
+      showError(result?.msg || 'Usuario o contraseña incorrectos');
+      showLoading(false);
+      return;
+    }
+
+    // Guardar sesión
+    saveToStorage(STORAGE.USER, result.nombre);
+    saveToStorage(STORAGE.ROLE, result.rol);
+    saveToStorage(STORAGE.TOKEN, Date.now());
+
+    // Redirigir según rol
+    if (result.rol === 'Administrador') {
+      window.location.href = 'admin.html';
+    } else {
+      window.location.href = 'crm.html';
+    }
+
+  } catch (error) {
+    showError('Error al conectar con el servidor');
+  }
+
+  showLoading(false);
+}
+
+function logout() {
+  clearSession();
+  window.location.href = 'index.html';
+}
+
+function showError(message) {
+  const errorDiv = document.getElementById('loginError');
+  if (errorDiv) {
+    errorDiv.textContent = message;
+    errorDiv.classList.remove('hidden');
+  } else {
+    alert(message);
+  }
+}
+
+function showLoading(show) {
+  const loadingDiv = document.getElementById('loginLoading');
+  if (loadingDiv) {
+    if (show) {
+      loadingDiv.classList.remove('hidden');
+    } else {
+      loadingDiv.classList.add('hidden');
+    }
+  }
+}
+
+// Verificar sesión al cargar
+window.addEventListener('load', () => {
+  if (window.location.pathname.includes('index.html') || window.location.pathname === '/') {
+    if (isLoggedIn()) {
+      const role = getCurrentRole();
+      if (role === 'Administrador') {
+        window.location.href = 'admin.html';
+      } else {
+        window.location.href = 'crm.html';
+      }
+    }
+  } else if (!isLoggedIn()) {
+    window.location.href = 'index.html';
+  }
+});
